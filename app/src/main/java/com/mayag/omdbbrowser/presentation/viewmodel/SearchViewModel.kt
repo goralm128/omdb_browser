@@ -3,6 +3,8 @@ package com.mayag.omdbbrowser.presentation.viewmodel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.mayag.omdbbrowser.domain.model.Movie
 import com.mayag.omdbbrowser.domain.repository.MovieRepository
 import com.mayag.omdbbrowser.presentation.state.UiState
@@ -31,15 +33,19 @@ class SearchViewModel @Inject constructor(
         private const val KEY_LAST_QUERY = "last_query"
     }
 
+    private val gson = Gson()
+    private val movieType = object : TypeToken<List<Movie>>() {}.type
+
     private val _searchResults = MutableStateFlow<UiState<List<Movie>>>(UiState.None)
     val searchResults: StateFlow<UiState<List<Movie>>> = _searchResults.asStateFlow()
 
     init {
         // Restore the search results and last query if available
-        val savedResults = savedStateHandle.get<List<Movie>>(KEY_SEARCH_RESULTS)
+        val savedResultsJson = savedStateHandle.get<String>(KEY_SEARCH_RESULTS)
         val lastQuery = savedStateHandle.get<String>(KEY_LAST_QUERY)
 
-        if (savedResults != null && lastQuery != null) {
+        if (savedResultsJson != null && lastQuery != null) {
+            val savedResults: List<Movie> = gson.fromJson(savedResultsJson, movieType)
             _searchResults.value = UiState.Success(savedResults)
         }
     }
@@ -61,8 +67,10 @@ class SearchViewModel @Inject constructor(
                 .collect { movies ->
                     if (movies.isNotEmpty()) {
                         _searchResults.value = UiState.Success(movies)
-                        // Save the state
-                        savedStateHandle[KEY_SEARCH_RESULTS] = movies
+
+                        // Save the state as a JSON string
+                        val jsonMovies = gson.toJson(movies)
+                        savedStateHandle[KEY_SEARCH_RESULTS] = jsonMovies
                         savedStateHandle[KEY_LAST_QUERY] = query
                     } else {
                         _searchResults.value = UiState.Error("No results found.")
@@ -80,6 +88,3 @@ class SearchViewModel @Inject constructor(
         }
     }
 }
-
-
-
