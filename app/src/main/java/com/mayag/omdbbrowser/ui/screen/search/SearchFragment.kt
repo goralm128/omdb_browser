@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import androidx.fragment.app.Fragment
+import androidx.recyclerview.widget.RecyclerView
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -59,27 +60,44 @@ class SearchFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
+        val orientation = resources.configuration.orientation
+        val layoutManager = if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
+        } else {
+            LinearLayoutManager(requireContext(), LinearLayoutManager.VERTICAL, false)
+        }
+
         movieAdapter = MovieAdapter { selectedMovie ->
             viewModel.selectMovie(selectedMovie)
-            val action = SearchFragmentDirections.actionSearchFragmentToMovieDetailsFragment(
-                selectedMovie.imdbID
-            )
+            val action = SearchFragmentDirections.actionSearchFragmentToMovieDetailsFragment(selectedMovie.imdbID)
             findNavController().navigate(action)
         }
 
         binding.recyclerView.apply {
-            layoutManager = LinearLayoutManager(
-                requireContext(),
-                if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
-                    LinearLayoutManager.HORIZONTAL else LinearLayoutManager.VERTICAL,
-                false
-            )
+            this.layoutManager = layoutManager
             adapter = movieAdapter
+            setHasFixedSize(true)
 
-            // Attach SnapHelper only once
-            if (onFlingListener == null) {
-                snapHelper.attachToRecyclerView(this)
-            }
+            // Attach Snap Helper
+            val snapHelper = LinearSnapHelper()
+            snapHelper.attachToRecyclerView(this)
+
+            // Scroll Listener for snapping detection
+            addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                    super.onScrollStateChanged(recyclerView, newState)
+                    if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                        val snapView = snapHelper.findSnapView(layoutManager)
+                        val position = snapView?.let { layoutManager.getPosition(it) }
+
+                        if (position != null && position != RecyclerView.NO_POSITION) {
+                            val snappedMovie = movieAdapter.currentList[position]
+                            viewModel.selectMovie(snappedMovie)
+                            movieAdapter.updateSelectedPosition(position)
+                        }
+                    }
+                }
+            })
         }
     }
 

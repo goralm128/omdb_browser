@@ -22,13 +22,27 @@ class MovieAdapter(
 
     override fun onBindViewHolder(holder: MovieViewHolder, position: Int) {
         val movie = getItem(position)
-        holder.bind(movie, position)
+        holder.bind(movie, position == selectedPosition)
+
+        holder.itemView.setOnClickListener {
+            onItemClicked(movie)
+            updateSelectedPosition(position)
+        }
     }
 
-    inner class MovieViewHolder(private val binding: ItemMovieBinding)
-        : RecyclerView.ViewHolder(binding.root) {
+    fun updateSelectedPosition(position: Int) {
+        if (selectedPosition != position) {
+            val previousPosition = selectedPosition
+            selectedPosition = position
+            notifyItemChanged(previousPosition)
+            notifyItemChanged(position)
+        }
+    }
 
-        fun bind(movie: Movie, position: Int) {
+    inner class MovieViewHolder(private val binding: ItemMovieBinding) :
+        RecyclerView.ViewHolder(binding.root) {
+
+        fun bind(movie: Movie, isSelected: Boolean) {
             binding.titleTextView.text = movie.title
             binding.yearTextView.text = movie.year
 
@@ -36,30 +50,28 @@ class MovieAdapter(
                 .load(movie.poster)
                 .into(binding.posterImageView)
 
-            binding.root.setOnClickListener {
-                onItemClicked(movie)
-                updateSelectedPosition(position)
+            if (isSelected) {
+                binding.root.apply {
+                    scaleX = 1.1f
+                    scaleY = 1.1f
+                    alpha = 1.0f
+                    elevation = 8f // Add shadow to emphasize the selection
+                }
+            } else {
+                binding.root.apply {
+                    scaleX = 1.0f
+                    scaleY = 1.0f
+                    alpha = 0.7f
+                    elevation = 0f
+                }
             }
-
-            // Highlight selected item
-            binding.root.alpha = if (selectedPosition == position) 1.0f else 0.6f
-            binding.root.scaleX = if (selectedPosition == position) 1.1f else 1.0f
-            binding.root.scaleY = if (selectedPosition == position) 1.1f else 1.0f
         }
     }
 
-    private fun updateSelectedPosition(position: Int) {
-        val previousPosition = selectedPosition
-        selectedPosition = position
-        notifyItemChanged(previousPosition)
-        notifyItemChanged(position)
-    }
-
-    class DiffCallback : DiffUtil.ItemCallback<Movie>() {
-        override fun areItemsTheSame(oldItem: Movie, newItem: Movie):
-                Boolean = oldItem.imdbID == newItem.imdbID
-        override fun areContentsTheSame(oldItem: Movie, newItem: Movie):
-                Boolean = oldItem == newItem
+    private class DiffCallback : DiffUtil.ItemCallback<Movie>() {
+        override fun areItemsTheSame(oldItem: Movie, newItem: Movie) = oldItem.imdbID == newItem.imdbID
+        override fun areContentsTheSame(oldItem: Movie, newItem: Movie) = oldItem == newItem
     }
 }
+
 
